@@ -1,4 +1,4 @@
-module go-ratelimiter
+module github.com/Abhishek5517/Rate-Limiter
 
 go 1.23.4
 
