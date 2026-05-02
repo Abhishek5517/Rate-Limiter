@@ -12,24 +12,23 @@ import (
 )
 
 type RateLimiter struct {
-	key         string
 	rate        float64
 	burst       int
 	windowSize  time.Duration
 	maxRequests int
 }
 
-func NewTokenBucket(key string, rate float64, burst int) *RateLimiter {
-	return &RateLimiter{key: key, rate: rate, burst: burst}
+func NewTokenBucket(rate float64, burst int) *RateLimiter {
+	return &RateLimiter{rate: rate, burst: burst}
 }
 
-func NewSlidingWindow(key string, windowSize time.Duration, maxRequests int) *RateLimiter {
-	return &RateLimiter{key: key, windowSize: windowSize, maxRequests: maxRequests}
+func NewSlidingWindow(windowSize time.Duration, maxRequests int) *RateLimiter {
+	return &RateLimiter{windowSize: windowSize, maxRequests: maxRequests}
 }
 
-func (rl *RateLimiter) TokenBucket(Redis *redis.Client, requested int) bool {
+func (rl *RateLimiter) TokenBucket(Redis *redis.Client, key string, requested int) bool {
 	now := time.Now().UnixNano()
-	result, err := Redis.Eval(context.Background(), tokenbucket.LuaScript, []string{rl.key}, rl.rate, rl.burst, now, requested).Result()
+	result, err := Redis.Eval(context.Background(), tokenbucket.LuaScript, []string{key}, rl.rate, rl.burst, now, requested).Result()
 	if err != nil {
 		fmt.Println("Redis error:", err)
 		return false
@@ -41,11 +40,11 @@ func (rl *RateLimiter) TokenBucket(Redis *redis.Client, requested int) bool {
 	return allowed == 1
 }
 
-func (rl *RateLimiter) SlidingWindow(Redis *redis.Client) bool {
+func (rl *RateLimiter) SlidingWindow(Redis *redis.Client, key string) bool {
 	now := time.Now().UnixNano()
 	uuidWithHyphen := uuid.New()
 	reqId := fmt.Sprintf("%d:%s", now, uuidWithHyphen.String())
-	result, err := Redis.Eval(context.Background(), slidingwindow.LuaScript, []string{rl.key}, now, rl.windowSize.Nanoseconds(), rl.maxRequests, reqId).Result()
+	result, err := Redis.Eval(context.Background(), slidingwindow.LuaScript, []string{key}, now, rl.windowSize.Nanoseconds(), rl.maxRequests, reqId).Result()
 	if err != nil {
 		fmt.Println("Redis error:", err)
 		return false

@@ -31,9 +31,9 @@ import (
 redisClient := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
 
 // 10 tokens/sec refill rate, burst capacity of 50
-rl := ratelimiter.NewTokenBucket("user:123", 10, 50)
+rl := ratelimiter.NewTokenBucket(10, 50)
 
-if rl.TokenBucket(redisClient, 1) {
+if rl.TokenBucket(redisClient, "user:123", 1) {
     // request allowed
 } else {
     // rate limited
@@ -52,9 +52,9 @@ import (
 redisClient := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
 
 // max 100 requests per minute
-rl := ratelimiter.NewSlidingWindow("user:123", time.Minute, 100)
+rl := ratelimiter.NewSlidingWindow(time.Minute, 100)
 
-if rl.SlidingWindow(redisClient) {
+if rl.SlidingWindow(redisClient, "user:123") {
     // request allowed
 } else {
     // rate limited
@@ -66,29 +66,31 @@ if rl.SlidingWindow(redisClient) {
 ### Constructors
 
 ```go
-func NewTokenBucket(key string, rate float64, burst int) *RateLimiter
+func NewTokenBucket(rate float64, burst int) *RateLimiter
 ```
-- `key` — unique identifier for the rate-limited entity (e.g. user ID, IP address)
 - `rate` — token refill rate in tokens per second
 - `burst` — maximum bucket capacity and initial token count
 
 ```go
-func NewSlidingWindow(key string, windowSize time.Duration, maxRequests int) *RateLimiter
+func NewSlidingWindow(windowSize time.Duration, maxRequests int) *RateLimiter
 ```
-- `key` — unique identifier for the rate-limited entity
 - `windowSize` — duration of the sliding window
 - `maxRequests` — maximum number of requests allowed within the window
 
 ### Methods
 
 ```go
-func (rl *RateLimiter) TokenBucket(Redis *redis.Client, requested int) bool
+func (rl *RateLimiter) TokenBucket(Redis *redis.Client, key string, requested int) bool
 ```
+- `key` — unique identifier for the rate-limited entity (e.g. user ID, IP address)
+
 Returns `true` if `requested` tokens are available and the request is allowed.
 
 ```go
-func (rl *RateLimiter) SlidingWindow(Redis *redis.Client) bool
+func (rl *RateLimiter) SlidingWindow(Redis *redis.Client, key string) bool
 ```
+- `key` — unique identifier for the rate-limited entity
+
 Returns `true` if the request count within the current window is below `maxRequests`.
 
 Both methods return `false` on Redis errors.
